@@ -11,7 +11,7 @@ const port = process.env.PORT || 5000;
 
 
 app.use(cors({
-  origin: "https://var-contact-us.vercel.app", // your Vercel frontend URL
+  origin: "https://var-frontend.vercel.app", // your Vercel frontend URL
   methods: ["GET","POST","PUT","DELETE"],
   credentials: true
 }));
