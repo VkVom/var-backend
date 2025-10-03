@@ -23,10 +23,12 @@ app.use(express.json());
 // This transporter is how your server connects to your Gmail account to send emails.
 // It uses the credentials you'll set in the .env file.
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // Use SSL
   auth: {
-    user: process.env.EMAIL_USER, // Your Gmail address
-    pass: process.env.EMAIL_PASS, // Your Gmail App Password
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS, // Your 16-character App Password
   },
 });
 
