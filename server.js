@@ -1,81 +1,53 @@
 const express = require('express');
-const nodemailer = require('nodemailer');
 const cors = require('cors');
 require('dotenv').config();
+const SibApiV3Sdk = require('@sendinblue/client');
 
 const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-// Enable CORS for all routes to allow requests from your React frontend
-
-
 app.use(cors({
-  origin: "https://var-frontend.vercel.app", // your Vercel frontend URL
-  methods: ["GET","POST","PUT","DELETE"],
-  credentials: true
+  origin: "https://var-frontend.vercel.app", // IMPORTANT: This must match your Vercel URL
+  methods: ["GET", "POST"],
 }));
-
-// Parse incoming JSON requests
 app.use(express.json());
 
-// --- Nodemailer Transporter Setup ---
-// This transporter is how your server connects to your Gmail account to send emails.
-// It uses the credentials you'll set in the .env file.
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // Use SSL
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Your 16-character App Password
-  },
-});
-
-// Verify the transporter configuration
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('Error with Nodemailer transporter config:', error);
-  } else {
-    console.log('Nodemailer is configured and ready to send emails.');
-  }
-});
-
+// --- Brevo (Sendinblue) API Client Setup ---
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+const apiKey = apiInstance.authentications['apiKey'];
+apiKey.apiKey = process.env.BREVO_API_KEY;
 
 // --- API Route for Sending Emails ---
-app.post('/api/send', (req, res) => {
+app.post('/api/send', async (req, res) => {
   const { name, email, message } = req.body;
 
-  // Basic validation
   if (!name || !email || !message) {
     return res.status(400).json({ status: 'fail', message: 'All fields are required.' });
   }
 
-  // Email content setup
-  const mailOptions = {
-    from: `"${name}" <${email}>`, // Shows sender's name and email
-    to: process.env.EMAIL_USER,    // The email address that will receive the form data
-    subject: `New Contact Form Submission from ${name}`,
-    html: `
-      <h2>New Portfolio Contact</h2>
-      <p><strong>Name:</strong> ${name}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Message:</strong></p>
-      <p>${message.replace(/\n/g, '<br>')}</p>
-    `,
-  };
+  const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
 
-  // Send the email
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error('Error sending email:', error);
-      return res.status(500).json({ status: 'error', message: 'Something went wrong. Please try again.' });
-    }
-    console.log('Email sent: ' + info.response);
+  sendSmtpEmail.subject = `New Contact Form Submission from ${name}`;
+  sendSmtpEmail.htmlContent = `
+    <h2>New Portfolio Contact</h2>
+    <p><strong>Name:</strong> ${name}</p>
+    <p><strong>Email:</strong> ${email}</p>
+    <p><strong>Message:</strong></p>
+    <p>${message.replace(/\n/g, '<br>')}</p>
+  `;
+  sendSmtpEmail.sender = { name: 'VAR Portfolio Form', email: process.env.FROM_EMAIL };
+  sendSmtpEmail.to = [{ email: process.env.TO_EMAIL }];
+
+  try {
+    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log('API called successfully. Returned data: ' + JSON.stringify(data));
     res.status(200).json({ status: 'success', message: 'Your message has been sent successfully!' });
-  });
+  } catch (error) {
+    console.error('Error sending email:', error);
+    res.status(500).json({ status: 'error', message: 'Something went wrong. Please try again.' });
+  }
 });
-
 
 // Start the server
 app.listen(port, () => {
